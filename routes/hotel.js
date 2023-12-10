@@ -1,43 +1,37 @@
 const express = require("express");
+const jwt = require("jsonwebtoken");
 const router = express.Router();
+const Hotel = require("../models/hotel");
 
-const hotels = [
-  {
-    id: 1,
-    name: "Hotel 1",
-    price: 100,
-    city: "Paris",
-    country: "France",
-    rating: 4.6,
-    stars: 4,
-  },
-  {
-    id: 2,
-    name: "Hotel 2",
-    price: 200,
-    city: "London",
-    country: "UK",
-    rating: 4.2,
-    stars: 5,
-  },
-];
+const jwtVerify = (req, res, next) => {
+  const token = req.headers.authorization;
+  if (token) {
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decodedToken;
+  }
+  next();
+};
 
-router.get("/", (req, res) => {
+router.use(jwtVerify);
+
+router.get("/", async (req, res) => {
+  const hotels = await Hotel.find();
   res.send(hotels);
 });
 
-router.get("/:id", (req, res) => {
-  const hotel = hotels.find(
-    (hotel) => hotel.id === parseInt(req.params.id, 10)
-  );
+router.get("/:id", async (req, res) => {
+  const hotel = await Hotel.findById(req.params.id);
   res.send(hotel);
 });
 
-router.post("/", (req, res) => {
-  const hotel = req.body;
-  hotel.id = hotels.length + 1;
-  hotels.push(hotel);
-  res.send(hotel);
+router.post("/", async (req, res) => {
+  if (req.user && req.user.role === "ADMIN") {
+    const hotel = req.body;
+    const dbHotel = await Hotel.create(hotel);
+    res.send(dbHotel);
+  } else {
+    res.status(403).send({ message: "Unauthorized" });
+  }
 });
 
 module.exports = router;
